@@ -1,3 +1,5 @@
+WARNING! This stuff is really BETA, use at your own risk!
+--------------------------------------------------------------------------------------
 Contained are various utilities designed to help Linux sysadmins work with Wordpress.
 I strongly recommend that you fully test these utilties before attempting to use them
 on production data.
