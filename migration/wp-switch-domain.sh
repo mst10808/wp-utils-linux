@@ -35,7 +35,7 @@ fi
 
 #Backup the database before we do anything else
 echo "Backing Up the Database"
-mysqldump --host=${db_url} --user=${db_user} --password=${db_pass} $db_name > ${db_name}.bak.sql
+mysqldump --host=${db_url} --user=${db_user} --password=${db_pass} --default-character-set=utf8 $db_name > ${db_name}.bak.sql
 
 #Prep the database for migration
 echo "Preparing Database for Migration"
@@ -46,7 +46,7 @@ if [ $? -eq 0 ]; then
 
     #Get a dump of the "migrated" database
     echo "Creating Database Dump"
-    mysqldump --host=${db_url} --user=${db_user} --password=${db_pass} $db_name > ${db_name}.migrated.sql
+    mysqldump --host=${db_url} --user=${db_user} --password=${db_pass} --default-character-set=utf8 $db_name > ${db_name}.migrated.sql
 
     echo "Done!"
     echo " "
