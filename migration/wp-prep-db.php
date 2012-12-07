@@ -77,15 +77,46 @@ $mysqli = new mysqli($db_host, $db_user, $db_pass, $db_name);
 //set character set
 $mysqli->set_charset("utf8");
 
-//GET THE TABLES!
+//GET THE TABLES/VIEWS!
 $table_list = array();
+$view_list = array();
 
-$table_result = $mysqli->query("SHOW TABLES");
+//Fetch list of only tables
+$table_result = $mysqli->query("SHOW FULL TABLES WHERE TABLE_TYPE = 'BASE TABLE'");
 while ($table = $table_result->fetch_array(MYSQLI_NUM)) {
+    
+    //If there is a wp_blogs table its probably a multisite
+    if($table[0] == 'wp_blogs'){
+        $multisite = True;
+    }
+
     $table_list[] = $table[0];
 }
 
 $table_result->close();
+
+//Fetch list of only views if its a multisite
+if ($multisite){
+
+    $view_result = $mysqli->query("SHOW FULL TABLES WHERE TABLE_TYPE = 'VIEW'");
+    while ($view = $view_result->fetch_array(MYSQLI_NUM)) {
+        $view_list[] = $view[0];
+    }
+
+    $view_result->close();
+}
+
+//get rid of tables we will never need to edit and cause problems
+$table_omit = array('wp_signups');
+foreach ($table_list as $id => $tname){
+    if (in_array($tname,$table_omit)){
+        unset($table_list[$id]);
+    }
+}
+
+//Fix indexes in array
+$table_list = array_values($table_list);
+
 
 //GET THE COLUMN NAMES FOR ALL TABLES!
 $column_list = array();
@@ -142,7 +173,7 @@ for ($i = 0; $i < count($column_list); $i++) {
 
     $search_query = "SELECT `" . $primary_key . "`, `" . $column_name . "` FROM " . $column_list[$i]['table'] . " WHERE " . $column_name . " LIKE '%" . $old_domain_name . "%'";
     $search_result = $mysqli->query($search_query);
-
+    
     //we only care about entries that have the old domain name in them
     if ($search_result->num_rows != 0) {
 
@@ -192,6 +223,21 @@ for ($i = 0; $i < count($column_list); $i++) {
     }
 }
 
+//Repair the VIEWS
+if ($multisite){
+    $view_update_queue = array();
+
+    for($i=0; $i<count($view_list); $i++){
+        $view_contents_result = $mysqli->query("SHOW CREATE VIEW $view_list[$i]");
+        while ($view_contents = $view_contents_result->fetch_array(MYSQLI_ASSOC)) {
+            $old_view_contents = $view_contents['Create View'];
+            $view_name = $view_contents['View'];
+            $new_view_query = preg_replace("(" . $old_domain_name_escaped . ")", $new_domain_name, $old_view_contents);
+	    $view_update_queue[$view_name] = $new_view_query;
+        }
+    }
+}
+
 //If dry run don't run the updates on the db
 if($dry_run == 'dryrun'){
     echo "DRY RUN";
@@ -204,10 +250,22 @@ else{
     	    echo $update_queue[$i]['log'];
     	    $mysqli->query($update_queue[$i]['query']);
 	}
+        if($multisite){
+            //Drop and recreate views
+            foreach($view_update_queue as $view => $query){
+                echo "Dropping $view\n";
+                $mysqli->query("DROP VIEW IF EXISTS $view");
+                echo "Recreating $view\n";
+                $mysqli->query("$query");
+            }
+        }
 }
 
 //print out a report so we know what happened
 echo "\n";
+if($multisite){
+    echo "DETECTED MULTISITE/NETWORK INSTALL\n";
+}
 echo "DB CHANGE SUMMARY\n";
 echo "Changed " . $old_domain_name . " -> " . $new_domain_name . "\n\n";
 echo "Total: " . $total_changed . " values\n";
@@ -216,6 +274,10 @@ echo "Breakdown:\n";
 //dump summary
 for ($i = 0; $i < count($field_summary); $i++) {
     echo $field_summary[$i]['table'] . " " . $field_summary[$i]['column'] . " : " . $field_summary[$i]['count'] . " rows\n";
+}
+if($multisite){
+    $views_changed = count($view_update_queue);
+    echo "$views_changed Views Changed\n";
 }
 echo "\n";
 exit(0);
