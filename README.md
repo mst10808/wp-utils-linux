@@ -17,6 +17,12 @@ modify paths in absolute file references or "find and replace" any text in the W
 database. Requires MySQL & PHP to run. Also included helper Bash script to make it
 easier to use.
 
+I recommend not using this on your actual database. Take a database dump of the
+wordpress site and run this on a staging database. Can be run as the a normal wordpress
+user for single site installs. For multisite/network installs a database user with
+SUPER privilege may be required if not using the exact same user that wordpress is
+using.
+
  backup:
 -------------------------------------------------------------------------------------
 Bash script used to help backup an entire Wordpress instance. Creates a tar.gz of all
