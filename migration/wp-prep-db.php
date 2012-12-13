@@ -71,6 +71,19 @@ function is_serialized($data) {
     return false;
 }
 
+//class for saving errors
+class errors {
+    
+    public $list = array();
+
+    //add an error to the end of the list    
+    function append($prefix,$sql_error,$item){
+        $error = array('prefix' => $prefix, 'sql_error' => $sql_error, 'item' => $item);
+        $this->list[] = $error;
+    }
+}
+
+
 //connect to database
 $mysqli = new mysqli($db_host, $db_user, $db_pass, $db_name);
 
@@ -88,6 +101,7 @@ while ($table = $table_result->fetch_array(MYSQLI_NUM)) {
     //If there is a wp_blogs table its probably a multisite
     if($table[0] == 'wp_blogs'){
         $multisite = True;
+        echo "Detected Multisite/Network Install\n";
     }
 
     $table_list[] = $table[0];
@@ -210,7 +224,7 @@ for ($i = 0; $i < count($column_list); $i++) {
 
             //queue up the updates and their corresponding log message
             $update_queue[$queue_id]['query'] = "UPDATE " . $column_list[$i]['table'] . " SET " . $column_name . " = '" . $escaped_new_value . "' WHERE " . $primary_key . " = '" . $primary_key_value . "' LIMIT 1";
-            $update_queue[$queue_id]['log'] = "Updating " . $column_list[$i]['table'] . " WHERE " . $primary_key . " = " . $primary_key_value . "\n";
+            $update_queue[$queue_id]['log'] = "Update " . $column_list[$i]['table'] . " WHERE " . $primary_key . " = " . $primary_key_value . "\n";
 
             $queue_id++;
         }
@@ -238,6 +252,11 @@ if ($multisite){
     }
 }
 
+//create object for collecting errors
+$errors = new errors;
+$status_ok = "[DONE]";
+$status_error = "[ERROR]";
+
 //If dry run don't run the updates on the db
 if($dry_run == 'dryrun'){
     echo "DRY RUN";
@@ -247,25 +266,47 @@ else{
 	for($i=0;$i<count($update_queue);$i++){
 
 	    //run the queries
-    	    echo $update_queue[$i]['log'];
     	    $mysqli->query($update_queue[$i]['query']);
+            
+            $record_status = $status_ok;
+    
+            //Check for errors in editing rows and save them to the errors
+            if($mysqli->error != ""){
+                $errors->append("There was an error in editing the record",$mysqli->error,$update_queue[$i]['log']);
+                $record_status = $status_error;
+            }
+
+    	    echo $record_status . " " . $update_queue[$i]['log'];
+
 	}
         if($multisite){
-            //Drop and recreate views
             foreach($view_update_queue as $view => $query){
-                echo "Dropping $view\n";
+
+                //Drop the view
+                $drop_view_status = $status_ok;
                 $mysqli->query("DROP VIEW IF EXISTS $view");
-                echo "Recreating $view\n";
+                if($mysqli->error != ""){
+                    $errors->append("There was an error dropping the view",$mysqli->error,$view);
+                    $drop_view_status = $status_error;
+                }
+                echo $drop_view_status . " Dropped $view\n";
+
+                //recreate the view
+                $create_view_status = $status_ok;
                 $mysqli->query("$query");
+                
+                //Check for errors in creating view
+                if($mysqli->error != ""){
+                    $errors->append("There was an error creating the view",$mysqli->error,$view);
+                    $create_view_status = $status_error;
+                }
+                echo $create_view_status . " Recreating $view\n";
             }
         }
 }
 
 //print out a report so we know what happened
 echo "\n";
-if($multisite){
-    echo "DETECTED MULTISITE/NETWORK INSTALL\n";
-}
 echo "DB CHANGE SUMMARY\n";
 echo "Changed " . $old_domain_name . " -> " . $new_domain_name . "\n\n";
 echo "Total: " . $total_changed . " values\n";
@@ -280,5 +321,15 @@ if($multisite){
     echo "$views_changed Views Changed\n";
 }
 echo "\n";
+
+//print out errors that occurred
+echo "ERRORS:\n";
+$migration_errors = $errors->list;
+for($i=0;$i<count($migration_errors);$i++){
+    echo $migration_errors[$i]['prefix'] . " " . $migration_errors[$i]['item'] . "\n" . $migration_errors[$i]['sql_error'] . "\n";
+}
+
+echo "\n";
+
 exit(0);
 ?>
