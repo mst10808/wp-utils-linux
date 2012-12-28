@@ -9,6 +9,7 @@ class site {
 
     public $name;
     public $db_config;
+    public $environment;
     protected $plugin_updates;
     protected $core_updates;
 
