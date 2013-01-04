@@ -14,8 +14,8 @@ db_name=""
 
 
 # repair is used when theres an inconsistancy in the database names
-# Ex. there are both energy.ehawaii.gov and test-energy.ehawaii.gov in the db
-# prevents the creation of test-test-energy.ehawaii.gov
+# Ex. there are both example.com and test-example.com in the db
+# prevents the creation of test-test-example.com
 # Changes them all to the old value
 if [ "$1" = "-repair" ]; then
 
