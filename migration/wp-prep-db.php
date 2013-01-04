@@ -188,7 +188,7 @@ for ($i = 0; $i < count($column_list); $i++) {
     $column_name = $column_list[$i]['column'];
     $primary_key = $column_list[$i]['pk'];
 
-    $search_query = "SELECT `" . $primary_key . "`, `" . $column_name . "` FROM " . $column_list[$i]['table'] . " WHERE " . $column_name . " LIKE '%" . $old_domain_name . "%'";
+    $search_query = "SELECT `" . $primary_key . "`, `" . $column_name . "` FROM " . $column_list[$i]['table'] . " WHERE `" . $column_name . "` LIKE '%" . $old_domain_name . "%'";
     $search_result = $mysqli->query($search_query);
     
     //we only care about entries that have the old domain name in them
@@ -326,10 +326,12 @@ if($multisite){
 echo "\n";
 
 //print out errors that occurred
-echo "ERRORS:\n";
-$migration_errors = $errors->list;
-for($i=0;$i<count($migration_errors);$i++){
-    echo $migration_errors[$i]['prefix'] . " " . $migration_errors[$i]['item'] . "\n" . $migration_errors[$i]['sql_error'] . "\n";
+if(count($error->list) > 0){
+    echo "ERRORS:\n";
+    $migration_errors = $errors->list;
+    for($i=0;$i<count($migration_errors);$i++){
+        echo $migration_errors[$i]['prefix'] . " " . $migration_errors[$i]['item'] . "\n" . $migration_errors[$i]['sql_error'] . "\n";
+    }
 }
 
 echo "\n";
