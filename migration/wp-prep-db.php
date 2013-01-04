@@ -94,6 +94,9 @@ $mysqli->set_charset("utf8");
 $table_list = array();
 $view_list = array();
 
+//Default to not multisite
+$multisite = False;
+
 //Fetch list of only tables
 $table_result = $mysqli->query("SHOW FULL TABLES WHERE TABLE_TYPE = 'BASE TABLE'");
 while ($table = $table_result->fetch_array(MYSQLI_NUM)) {
