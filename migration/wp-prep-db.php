@@ -326,7 +326,7 @@ if($multisite){
 echo "\n";
 
 //print out errors that occurred
-if(count($error->list) > 0){
+if(count($errors->list) > 0){
     echo "ERRORS:\n";
     $migration_errors = $errors->list;
     for($i=0;$i<count($migration_errors);$i++){
