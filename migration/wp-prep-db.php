@@ -38,10 +38,14 @@ else{
 //escape old domain name for use in regex
 $old_domain_name_escaped = preg_replace("(\.)", "\\\.", $old_domain_name);
 $old_domain_name_escaped = preg_replace("(\-)", "\\\-", $old_domain_name_escaped);
+define('OLD_DOMAIN',$old_domain_name);
+define('OLD_DOMAIN_ESCAPED',$old_domain_name_escaped);
 
 //escape new domain name for use in regex
 $new_domain_name_escaped = preg_replace("(\.)", "\\\.", $new_domain_name);
 $new_domain_name_escaped = preg_replace("(\-)", "\\\-", $new_domain_name_escaped);
+define('NEW_DOMAIN',$new_domain_name);
+define('NEW_DOMAIN_ESCAPED',$new_domain_name_escaped);
 
 //is_serialized function taken from wordpress
 //i'm sure they wont mind since its their fault we are having this problem in the first place
@@ -83,6 +87,11 @@ class errors {
     }
 }
 
+function replace_old_new(&$value,$key){
+    if (is_string($value)){
+    $value = preg_replace("(" . OLD_DOMAIN . ")", NEW_DOMAIN, $value);
+    }
+}
 
 //connect to database
 $mysqli = new mysqli($db_host, $db_user, $db_pass, $db_name);
@@ -123,22 +132,15 @@ if ($multisite){
     $view_result->close();
 }
 
-//get rid of tables we will never need to edit and cause problems
-$table_omit = array('wp_signups');
-foreach ($table_list as $id => $tname){
-    if (in_array($tname,$table_omit)){
-        unset($table_list[$id]);
-    }
-}
-
-//Fix indexes in array
-$table_list = array_values($table_list);
-
 
 //GET THE COLUMN NAMES FOR ALL TABLES!
 $column_list = array();
+$table_omit = array('wp_signups');
 
 for ($i = 0; $i < count($table_list); $i++) {
+
+    //Reset $primary_key to blank so we can identify tables without a PK
+    $primary_key = '';
 
     //get table columns to find the primary key
     $column_result_pk = $mysqli->query("SHOW COLUMNS FROM " . $table_list[$i]);
@@ -151,26 +153,40 @@ for ($i = 0; $i < count($table_list); $i++) {
     }
 
     $column_result_pk->close();
+    
+    // If there is no primary key, add it to omitted tables list
+    if($primary_key == ''){
+        array_push($table_omit,$table_list[$i]);
+    } else {
+        //Run it again cause it wont let me clone the result object
+        $column_result = $mysqli->query("SHOW COLUMNS FROM " . $table_list[$i]);
 
-    //Run it again cause it wont let me clone the result object
-    $column_result = $mysqli->query("SHOW COLUMNS FROM " . $table_list[$i]);
+        //Find the columns with text values in them and add them to the list
+        while ($column = $column_result->fetch_array(MYSQLI_ASSOC)) {
+            //remove the (#) part of field
+            $column_type = explode("(", $column['Type']);
 
-    //Find the columns with text values in them and add them to the list
-    while ($column = $column_result->fetch_array(MYSQLI_ASSOC)) {
-        //remove the (#) part of field
-        $column_type = explode("(", $column['Type']);
+            //set the text field types
+            $text_types = array('varchar', 'tinytext', 'text', 'mediumtext', 'longtext', 'tinyblob', 'blob', 'mediumblob', 'longblob');
 
-        //set the text field types
-        $text_types = array('varchar', 'tinytext', 'text', 'mediumtext', 'longtext', 'tinyblob', 'blob', 'mediumblob', 'longblob');
-
-        //we only care about columns with text in them
-        if (in_array($column_type[0], $text_types)) {
-            $column_list[] = array('table' => $table_list[$i], 'column' => $column['Field'], 'pk' => $primary_key);
+            //we only care about columns with text in them
+            if (in_array($column_type[0], $text_types)) {
+                $column_list[] = array('table' => $table_list[$i], 'column' => $column['Field'], 'pk' => $primary_key);
+            }
         }
+        $column_result->close();
     }
-
-    $column_result->close();
 }
+
+//get rid of tables we will never need to edit and cause problems
+foreach ($table_list as $id => $tname){
+    if (in_array($tname,$table_omit)){
+        unset($table_list[$id]);
+    }
+}
+
+//Fix indexes in array
+$table_list = array_values($table_list);
 
 //setup a total row counter
 $total_changed = 0;
@@ -200,7 +216,7 @@ for ($i = 0; $i < count($column_list); $i++) {
 
             //do a search for old domain name and replace with new one
             $old_value = $row[$column_name];
-
+            
             //Check if the new domain name already exists in this field and stop script if it is
             if(preg_match("(" . $new_domain_name_escaped . ")", $old_value) && $old_in_new){
                 echo "\nNew domain name exists in the database already\n";
@@ -215,11 +231,9 @@ for ($i = 0; $i < count($column_list); $i++) {
 
             //if the value was serialized, repair it
             if (is_serialized($old_value)) {
-		//UGLY HACK - replaces single quotes with ^ so the regex can work
-		//FIX ASAP
-		$new_value = str_replace("'","^",$new_value);
-                $new_value = preg_replace('!s:(\d+):"(.*?)";!se', '"s:".strlen("$2").":\"$2\";"', $new_value);
-      		$new_value = str_replace("^","'",$new_value);
+                $unserialized = unserialize($old_value);
+                array_walk_recursive($unserialized,'replace_old_new');
+                $new_value=serialize($unserialized);
             }
 
             //prep strings for sql query use
