@@ -1,14 +1,8 @@
-WARNING! This stuff is really BETA, use at your own risk!
+ Use at your own risk!
 --------------------------------------------------------------------------------------
 Contained are various utilities designed to help Linux sysadmins work with Wordpress.
 I strongly recommend that you fully test these utilties before attempting to use them
 on production data.
-
- wp-dash:
---------------------------------------------------------------------------------------
-A simple dashboard written in php to help monitor multiple Wordpress single sites for 
-updates to plugins or core. This application requires database access and that 
-Wordpress be using MySQL.
 
  migration:
 -------------------------------------------------------------------------------------
