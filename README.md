@@ -4,8 +4,12 @@ Contained are various utilities designed to help Linux sysadmins work with Wordp
 I strongly recommend that you fully test these utilties before attempting to use them
 on production data.
 
- migration:
+ migration (DEPRECATED):
 -------------------------------------------------------------------------------------
+DEPRECATED: Wordpress now has a officially supported CLI with the command
+"wp search-replace" which has the same functionality as this script
+
+OLD DESC:
 Originally written to switch the domain name wordpress is tied to. Can be used to
 modify paths in absolute file references or "find and replace" any text in the WP
 database. Requires MySQL & PHP to run. Also included helper Bash script to make it
